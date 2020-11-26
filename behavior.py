@@ -66,25 +66,25 @@ while True:
     distance = statistics.median(queue)
     print(distance)
     
-    # Discard anything below 20 cm
-    if distance < .2:
-      distance = .2
+    # Discard anything below 50 cm
+    if distance < .5:
+      distance = .5
     
     # Discard anything above 2 meters
     if distance > 2:
       distance = 2
     
     # Calculate how open the lid should be (from 0 to 100)
-    openness = int( translate(distance, .2, 2, 0, 100 ) )
+    openness = int( translate(distance, .5, 2, 0, 100 ) )
     
     # Make the lid move
     mouth(open=openness)
     
     # Wait for a bit
-    time.sleep(.5)
+    time.sleep(.01)
     
     # Remove all 20 items from the queue
     queue.clear()
 
   #run each iteration around 20 times per second
-  time.sleep(.05)
+  time.sleep(.01)
