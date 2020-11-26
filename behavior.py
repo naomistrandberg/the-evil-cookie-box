@@ -51,7 +51,7 @@ queue = []
 while True:
 
   # If the queue has less than N items
-  if len(queue) < 20:
+  if len(queue) < 50:
   
     # Add one more readings from the sensor to it
     queue.append(sensor.distance)
