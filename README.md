@@ -1,4 +1,4 @@
-# the-evil-cookie-box
+# The Evil Cookie Box
 
 It teases you with a cookie, but gradually hides it when you get closer…
 
