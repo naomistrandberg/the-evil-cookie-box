@@ -1,90 +1,85 @@
-# To prevent servo from flickering, wer’re using this hack:
-# https://ben.akrin.com/?p=9158
-
-# Imports hack
 import RPi.GPIO as GPIO
 import pigpio
-
-# Imports ultrassonic sensor library
 from gpiozero import DistanceSensor
-
-# Imports time to use sleep and (hopefully) calculate the speed of approach
+from gpiozero import LED
+from gpiozero import Buzzer
 import time
 
-# Imports fancy math to easily calculate median distance from multiple readings (for accuracy)
-import statistics
-
-# Settings for the servo
-servo = 25 # GPIO 
+servo = 18
 pwm = pigpio.pi()
 pwm.set_mode(servo, pigpio.OUTPUT)
 pwm.set_PWM_frequency( servo, 50 )
 
-# Settings for the sensor
-sensor = DistanceSensor(echo=21, trigger=18, max_distance=4)
+sensor = DistanceSensor(echo=24, trigger=23, max_distance=1)
 
-# Custom function to replace the scaled() one, as I couldn’t get it to work:
-# https://gpiozero.readthedocs.io/en/stable/api_tools.html
+led_red = LED(22)
+led_yellow = LED(27)
+led_green = LED(17)
+bz = Buzzer(4)
+
 def translate(value, leftMin, leftMax, rightMin, rightMax):
     # Figure out how 'wide' each range is
     leftSpan = leftMax - leftMin
     rightSpan = rightMax - rightMin
-
     # Convert the left range into a 0-1 range (float)
     valueScaled = float(value - leftMin) / float(leftSpan)
-
     # Convert the 0-1 range into a value in the right range.
     return rightMin + (valueScaled * rightSpan)
 
-# Custom function to move the lid, where open is a value from 0 (closed) to 100 (opened)
 def mouth(open):
-  # Cheatsheet:
   #   0 = closed =  45 deg = 1000
   # 100 = open   = -45 deg = 2000
   pulse = int( translate(open, 0, 100, 1000, 2000) )
   pwm.set_servo_pulsewidth( servo, pulse )
+    
+previous_distance = 1.0
+openness_variable = 2
+is_closed = False
 
-# Creates empty list to house readings from the distance sensor
-queue = []
-
-# Infinite loop
 while True:
-
-  # If the queue has less than N items
-  if len(queue) < 50:
-  
-    # Add one more readings from the sensor to it
-    queue.append(sensor.distance)
     
-    # Skip everything and start the iteration of the loop
-    continue
-  
-  # If the queue has exactly N readings from the sensor
-  else: 
+new_distance = sensor.distance
+    print(new_distance)
     
-    # Get the median reading (to remove outliers)
-    distance = statistics.median(queue)
-    print(distance)
-    
-    # Discard anything below 50 cm
-    if distance < .5:
-      distance = .5
-    
-    # Discard anything above 2 meters
-    if distance > 2:
-      distance = 2
-    
-    # Calculate how open the lid should be (from 0 to 100)
-    openness = int( translate(distance, .5, 2, 0, 100 ) )
-    
-    # Make the lid move
-    mouth(open=openness)
-    
-    # Wait for a bit
-    time.sleep(.01)
-    
-    # Remove all 20 items from the queue
-    queue.clear()
-
-  #run each iteration around 20 times per second
-  time.sleep(.01)
+if not is_closed and previous_distance - new_distance > 0.2:
+        print("Too fast!")
+        is_closed = True
+        openness_variable = 0
+        openness = int( translate(openness_variable, .5, 2, 0, 100 ) )
+        mouth(open=openness)
+        led_red.on()
+        led_green.off()
+        led_yellow.off()
+        for i in range(0, 20):
+            print(i)
+            led_red.on()
+            bz.on()
+            time.sleep(0.05)
+            led_red.off()
+            bz.off()
+            time.sleep(0.05)
+        led_red.on()
+    elif not is_closed and previous_distance - new_distance > 0.1:
+        print("Detecting you")
+        # decrease angle a little bit to stress you
+        if openness_variable >= 0.05:
+            openness_variable = openness_variable - 0.05
+            openness = int( translate(openness_variable, .5, 2, 0, 100 ) )
+            mouth(open=openness)
+        led_red.off()
+        led_green.off()
+        led_yellow.on()
+        bz.on()
+        time.sleep(0.02)
+        bz.off()
+    elif previous_distance == 1.0 and new_distance == 1.0:
+        print("Not detecting you. Restarting.")
+        is_closed = False
+        openness_variable = 2
+        openness = int( translate(openness_variable, .5, 2, 0, 100 ) )
+        mouth(open=openness)
+        led_red.off()
+        led_green.on()
+        led_yellow.off()
+    previous_distance = new_distance
+    time.sleep(1)
